@@ -1,0 +1,21 @@
+{
+    "gid": "YOUR_GID_HERE",
+    "routing_id": "YOUR_ROUTING_ID_HERE",
+    "proximity_meters": 100,
+    "ha_base_url": "http://homeassistant.local:8123",
+    "ha_entity_webhook_id": "garbage_truck_info",
+    "target_locations": [
+        {
+            "name": "Home",
+            "lat": 24.000000,
+            "lng": 121.000000,
+            "webhook_id": "garbage_coming_home"
+        },
+        {
+            "name": "Intersection",
+            "lat": 24.000000,
+            "lng": 121.000000,
+            "webhook_id": "garbage_coming_intersection"
+        }
+    ]
+}
