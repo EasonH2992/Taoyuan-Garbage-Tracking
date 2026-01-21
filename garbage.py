@@ -3,8 +3,18 @@ import math
 import json
 import os
 import requests
+import time
 from playwright.async_api import async_playwright
 from typing import Optional, Tuple
+
+# --- 這是針對「垃圾車」特調的參數 ---
+# 根據你的數據：650m / 7min ≈ 1.55 m/s
+# 我們設定這個基準，強迫程式一開始用這個速度去估算
+BASELINE_SPEED = 1.0  
+# 權重：0.0 到 1.0
+# 0.7 代表：ETA 的計算 70% 相信「基準慢速」，30% 相信「現在的車速」
+# 這樣就算它起步很快，ETA 也不會瞬間變成 1 分鐘
+WEIGHT_BASELINE = 0.75
 
 async def refresh_session(gid: str, routing_id: str) -> Tuple[Optional[str], Optional[str]]:
     async with async_playwright() as p:
@@ -19,6 +29,14 @@ async def refresh_session(gid: str, routing_id: str) -> Tuple[Optional[str], Opt
 
         await page.goto("https://route.tyoem.gov.tw/")
         await asyncio.sleep(1)
+
+        # Close the announcement modal
+        try:
+            # Click on a blank area (top-left corner) to dismiss the modal
+            await page.mouse.click(10, 10)
+            await asyncio.sleep(1)
+        except Exception:
+            print("Error attempting to close modal, continuing...")
 
         # Click "Realtime Info" (Keep Chinese selector for website compatibility)
         await page.click("text=即時動態")
@@ -122,6 +140,14 @@ async def main():
     for loc in TARGET_LOCATIONS:
         loc["notified"] = False
 
+    # ETA variables
+    eta_checkpoint = next((loc for loc in TARGET_LOCATIONS if loc['name'] == "eta_checkpoint"), None)
+    eta_active = False
+    traveled_distance = 0.0
+    checkpoint_start_time = 0.0
+    last_lat = None
+    last_lng = None
+
     jsessionid, random_form = await refresh_session(gid, routing_id)
     if not jsessionid or not random_form:
         print("Failed to get Session, exiting.")
@@ -149,6 +175,11 @@ async def main():
                 # Reset notification status for all locations
                 for loc in TARGET_LOCATIONS:
                     loc["notified"] = False
+                # Reset ETA
+                eta_active = False
+                traveled_distance = 0.0
+                last_lat = None
+                last_lng = None
                 print("All monitoring points notification status reset.")
                 continue
             if result.get("errCode") == "0000":
@@ -162,6 +193,49 @@ async def main():
                     car_lng = car.get('lng')
                     
                     if car_lat and car_lng:
+                        # Calculate step distance for ETA
+                        step_dist = 0.0
+                        if last_lat is not None and last_lng is not None:
+                            step_dist = calculate_distance(last_lat, last_lng, car_lat, car_lng)
+                        last_lat = car_lat
+                        last_lng = car_lng
+
+                        # Check ETA Checkpoint
+                        if eta_checkpoint and not eta_active:
+                            dist_cp = calculate_distance(eta_checkpoint['lat'], eta_checkpoint['lng'], car_lat, car_lng)
+                            if dist_cp <= PROXIMITY_METERS:
+                                print("--- Reached ETA Checkpoint, starting ETA calculation ---")
+                                eta_active = True
+                                checkpoint_start_time = time.time()
+                                traveled_distance = 0.0
+
+                        # Calculate ETA
+                        eta_minutes = None
+                        if eta_active:
+                            traveled_distance += step_dist
+                            remaining_dist = max(0, 1200 - traveled_distance)
+                            elapsed = time.time() - checkpoint_start_time
+
+                            if elapsed > 1 and traveled_distance > 0:
+                                # 1. 計算當前這趟的實際平均速度 (Real-time average)
+                                current_real_avg = traveled_distance / elapsed
+                                
+                                # 2. 計算「混合速度」 (Blended Speed)
+                                # 公式：(基準速度 * 權重) + (實際速度 * (1 - 權重))
+                                # 剛開始時，這個公式會把過快的速度「拉低」
+                                calc_speed = (BASELINE_SPEED * WEIGHT_BASELINE) + (current_real_avg * (1 - WEIGHT_BASELINE))
+                                
+                                # 3. 計算 ETA
+                                eta_seconds = remaining_dist / calc_speed
+                                eta_minutes = math.ceil(eta_seconds / 60)
+                                
+                                # (除錯用：你可以把這行印出來看，會發現 calc_speed 比實際速度慢很多，這就是我們要的)
+                                print(f"實際速度: {current_real_avg:.2f}, 修正後計算速度: {calc_speed:.2f}")
+
+                            else:
+                                # 剛開始完全沒有數據時，直接用最保守的基準速度算
+                                eta_minutes = math.ceil(remaining_dist / BASELINE_SPEED / 60)
+
                         print(f"--- Garbage truck detected (Car ID: {car.get('car_id')}) ---")
 
                         # Prepare payload for HA
@@ -170,16 +244,23 @@ async def main():
                             "latitude": car_lat,
                             "longitude": car_lng,
                         }
-
+                        
+                        if eta_minutes is not None:
+                            ha_payload["eta_minutes"] = eta_minutes
+                            print(f"  -> ETA: {eta_minutes} min (Traveled: {traveled_distance:.0f}m)")
                         # Notify HA with car info on every update
                         if HA_ENTITY_WEBHOOK_ID:
                             notify_ha(HA_BASE_URL, HA_ENTITY_WEBHOOK_ID, ha_payload)
 
                         # Find location objects for dependency logic
+                        checkpoint_location = next((loc for loc in TARGET_LOCATIONS if loc['name'] == "eta_checkpoint"), None)
                         alley_location = next((loc for loc in TARGET_LOCATIONS if loc['name'] == "Intersection"), None)
                         home_location = next((loc for loc in TARGET_LOCATIONS if loc['name'] == "Home"), None)
 
                         # 1. Check Intersection first
+                        if not eta_active:
+                            distance = calculate_distance(checkpoint_location['lat'], checkpoint_location['lng'], car_lat, car_lng)
+                            print(f"  -> Distance to 'Checkpoint': {distance:.2f} meters")
                         if alley_location and not alley_location['notified']:
                             distance = calculate_distance(alley_location['lat'], alley_location['lng'], car_lat, car_lng)
                             print(f"  -> Distance to 'Intersection': {distance:.2f} meters")
@@ -196,6 +277,11 @@ async def main():
                                 print(f"*** Garbage truck entering 'Home' within {PROXIMITY_METERS} meters! ***")
                                 notify_ha(HA_BASE_URL, home_location['webhook_id'])
                                 home_location['notified'] = True
+                        
+                        # Stop ETA if Home reached
+                        if home_location and home_location['notified']:
+                            eta_active = False
+
                         print("-" * 20)
 
             else:
@@ -203,8 +289,8 @@ async def main():
         except Exception as e:
             print(f"Error during processing: {e}")
 
-        print("Waiting 30 seconds before retry...")
-        await asyncio.sleep(30)
+        print("Waiting 15 seconds before retry...")
+        await asyncio.sleep(15)
 
 if __name__ == "__main__":
     asyncio.run(main())
