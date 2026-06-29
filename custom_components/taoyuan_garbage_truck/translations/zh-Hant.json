@@ -1,0 +1,68 @@
+{
+    "config": {
+        "step": {
+            "user": {
+                "title": "設定桃園垃圾車追蹤 (1/3)",
+                "description": "請輸入您的完整地址，系統將自動為您尋找附近的清運路線。",
+                "data": {
+                    "address": "您的完整地址 (例如：桃園市桃園區建華一街)"
+                }
+            },
+            "manual_location": {
+                "title": "手動輸入座標 (1b/3)",
+                "description": "地址自動解析失敗，請手動輸入您家的緯度與經度（可從 Google Maps 取得）。",
+                "data": {
+                    "latitude": "緯度 (例如：24.9935)",
+                    "longitude": "經度 (例如：121.3010)"
+                }
+            },
+            "route": {
+                "title": "選擇清運路線 (2/3)",
+                "description": "系統已為您過濾出該區的路線，並預選了最可能的一條。請確認或重新選擇正確的路線。",
+                "data": {
+                    "routing_id": "清運路線"
+                }
+            },
+            "poi": {
+                "title": "選擇特定的清運點 (3/3)",
+                "description": "系統已為您預選了最靠近您家的清運點（以此點的預計到達時間為準）。您可以手動更改為其他定點。",
+                "data": {
+                    "poi_id": "清運點/站牌"
+                }
+            }
+        },
+        "error": {
+            "address_not_found": "無法解析此地址的座標，請檢查地址是否正確。",
+            "routes_not_found": "無法找到該地址附近的清運路線，請確認地址包含正確的行政區名稱。",
+            "pois_not_found": "無法取得該路線的清運點資訊，請稍後再試。",
+            "invalid_coordinates": "座標不在台灣範圍內（緯度 21–26、經度 119–123），請重新輸入。"
+        },
+        "abort": {
+            "already_configured": "此路線已經設定過了。"
+        }
+    },
+    "entity": {
+        "sensor": {
+            "distance": {
+                "name": "垃圾車距離"
+            },
+            "eta": {
+                "name": "垃圾車預估到達時間"
+            },
+            "status": {
+                "name": "垃圾車狀態",
+                "state": {
+                    "Not Started": "未發車",
+                    "Offline": "離線",
+                    "Driving": "行駛中",
+                    "Unknown": "未知"
+                }
+            }
+        },
+        "device_tracker": {
+            "tracker": {
+                "name": "垃圾車位置"
+            }
+        }
+    }
+}

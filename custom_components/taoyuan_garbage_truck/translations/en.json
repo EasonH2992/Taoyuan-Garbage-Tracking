@@ -1,0 +1,68 @@
+{
+    "config": {
+        "step": {
+            "user": {
+                "title": "Setup Taoyuan Garbage Truck (1/3)",
+                "description": "Please enter your full address. The system will automatically find nearby routes.",
+                "data": {
+                    "address": "Your Full Address (e.g. 桃園市桃園區建華一街)"
+                }
+            },
+            "manual_location": {
+                "title": "Enter Coordinates Manually (1b/3)",
+                "description": "Address lookup failed. Please enter your home latitude and longitude (available from Google Maps).",
+                "data": {
+                    "latitude": "Latitude (e.g. 24.9935)",
+                    "longitude": "Longitude (e.g. 121.3010)"
+                }
+            },
+            "route": {
+                "title": "Select Route (2/3)",
+                "description": "The system has filtered routes for this district and pre-selected the most likely one. Please confirm or select the correct route.",
+                "data": {
+                    "routing_id": "Garbage Truck Route"
+                }
+            },
+            "poi": {
+                "title": "Select Specific Stop (3/3)",
+                "description": "The system has pre-selected the stop closest to your home (ETA will be based on this stop). You can manually select another stop.",
+                "data": {
+                    "poi_id": "Garbage Stop / POI"
+                }
+            }
+        },
+        "error": {
+            "address_not_found": "Could not resolve the coordinates for this address. Please check if the address is correct.",
+            "routes_not_found": "Could not find routes near this address. Please make sure the address includes the correct district name.",
+            "pois_not_found": "Could not retrieve stop information for this route. Please try again later.",
+            "invalid_coordinates": "Coordinates are outside Taiwan (lat 21–26, lng 119–123). Please re-enter."
+        },
+        "abort": {
+            "already_configured": "This route is already configured."
+        }
+    },
+    "entity": {
+        "sensor": {
+            "distance": {
+                "name": "Garbage Truck Distance"
+            },
+            "eta": {
+                "name": "Garbage Truck ETA"
+            },
+            "status": {
+                "name": "Garbage Truck Status",
+                "state": {
+                    "Not Started": "Not Started",
+                    "Offline": "Offline",
+                    "Driving": "Driving",
+                    "Unknown": "Unknown"
+                }
+            }
+        },
+        "device_tracker": {
+            "tracker": {
+                "name": "Garbage Truck Location"
+            }
+        }
+    }
+}

@@ -1,0 +1,11 @@
+{
+  "domain": "taoyuan_garbage_truck",
+  "name": "Taoyuan Garbage Truck",
+  "version": "1.1.0",
+  "documentation": "https://github.com/EasonH2992/garbage-truck-tracking",
+  "dependencies": [],
+  "codeowners": ["@EasonH2992"],
+  "requirements": ["requests", "beautifulsoup4", "geopy"],
+  "iot_class": "cloud_polling",
+  "config_flow": true
+}

@@ -1,2 +1,8 @@
 config.json
 __pycache__/
+*.pyc
+
+# Development / debug scripts
+test_*.py
+inspect_site.py
+temp_test_api.py
